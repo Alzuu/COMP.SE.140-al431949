@@ -1,0 +1,19 @@
+name: 'al431949'
+version: '3.8'
+services:
+  service1:
+    build: ./service1
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./logs:/logs
+    environment:
+      - TARGET_HOST=service2
+      - TARGET_PORT=8000
+      - PYTHONUNBUFFERED=1
+  service2:
+    build: ./service2
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./logs:/logs
