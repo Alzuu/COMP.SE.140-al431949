@@ -3,17 +3,70 @@ version: '3.8'
 services:
   service1:
     build: ./service1
-    ports:
-      - '3000:3000'
-    volumes:
-      - ./logs:/logs
+    container_name: service1
+    expose:
+      - 3000
+    networks:
+      - customNetwork
     environment:
       - TARGET_HOST=service2
       - TARGET_PORT=8000
+      - MQ_HOST=rabbitmq
+      - MQ_PORT=5672
       - PYTHONUNBUFFERED=1
+    depends_on:
+      - rabbitmq
+    command:
+      [
+        './utils/wait-for-it.sh',
+        'service2:8000',
+        '--',
+        'python3',
+        '-u',
+        'app.py',
+      ]
+
   service2:
     build: ./service2
+    container_name: service2
+    expose:
+      - 8000
+    networks:
+      - customNetwork
+    environment:
+      - MQ_HOST=rabbitmq
+      - MQ_PORT=5672
+    depends_on:
+      - rabbitmq
+    command:
+      ['./src/utils/wait-for-it.sh', 'rabbitmq:5672', '--', 'npm', 'start']
+
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq
     ports:
-      - '8000:8000'
-    volumes:
-      - ./logs:/logs
+      - '15672:15672'
+    expose:
+      - 5672
+    networks:
+      - customNetwork
+
+  monitor:
+    build: ./monitor
+    container_name: monitor
+    ports:
+      - '8087:8087'
+    expose:
+      - 8087
+    networks:
+      - customNetwork
+    environment:
+      - MQ_HOST=rabbitmq
+      - MQ_PORT=5672
+    depends_on:
+      - rabbitmq
+    command:
+      ['./src/utils/wait-for-it.sh', 'rabbitmq:5672', '--', 'npm', 'start']
+
+networks:
+  customNetwork:

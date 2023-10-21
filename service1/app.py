@@ -2,37 +2,40 @@ import requests
 import os
 import time
 import sys
+import pika
 from datetime import datetime
-from pathlib import Path
+
+
+def pika_connect():
+    mq_host = os.getenv("MQ_HOST")
+    mq_port = os.getenv("MQ_PORT")
+    connection = pika.BlockingConnection(
+        pika.ConnectionParameters(host=mq_host, port=mq_port)
+    )
+    channel = connection.channel()
+    channel.exchange_declare(exchange="topic_logs", exchange_type="topic", durable=True)
+    return connection, channel
 
 
 # Send an HTTP POST request to a given URL with text data
-def send_request(url, text, headers):
+def send_request(url, text):
     try:
-        requests.post(url, json={"data": text}, headers=headers)
-        return text
+        res = requests.post(url, json={"data": text})
+        timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        log = f"{res.status_code} {timestamp}"
+        return log
     except Exception as e:
-        return f"Error {str(e)}"
-
-
-# Write text data to a log file
-def write_log(file, text):
-    if not text:
-        with open(Path(file), "w") as log_file:
-            log_file.write("")
-    else:
-        with open(Path(file), "a") as log_file:
-            log_file.write(f"{text}\n")
+        log = f"Error {str(e)}"
+        return log
 
 
 # Exit the application
-def exit_app(url, headers):
+def exit_app(connection, channel):
     print("exit service1")
-    stop = "STOP"
+    stop = "SND STOP"
     try:
-        # Send a final request with "STOP" to the URL and write it to the log file
-        send_request(url, stop, headers)
-        write_log(Path(file_path), stop)
+        channel.basic_publish(exchange="topic_logs", routing_key="log.#", body=stop)
+        connection.close()
     except Exception as e:
         pass
     finally:
@@ -40,13 +43,6 @@ def exit_app(url, headers):
 
 
 if __name__ == "__main__":
-    file_path = "../logs/service1.log"
-    dir_path = "../logs"
-
-    # Create the log directory if it doesn't exist
-    if not Path(dir_path).exists():
-        Path(dir_path).mkdir(parents=True, exist_ok=True)
-
     # Retrieve environment variables for the target host and port
     target_host = os.getenv("TARGET_HOST")
     target_port = os.getenv("TARGET_PORT")
@@ -57,22 +53,21 @@ if __name__ == "__main__":
     # Create the URL for HTTP requests using the target address
     url = f"http://{target}/"
 
-    headers = {
-        "Content-type": "application/json",
-        "Accept": "application/json, text/plain",
-    }
-
-    # Initialize the log file with an empty line
-    write_log(Path(file_path), "")
+    connection, channel = pika_connect()
 
     # Send 20 requests with a pause of 2 seconds between each request
     for i in range(1, 21):
-        current_datetime = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        text = f"{i} {current_datetime} {target}"
-        result = send_request(url, text, headers)
-        # Write the result to the log file
-        write_log(Path(file_path), result)
-        time.sleep(2)
+        try:
+            current_datetime = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            message = f"SND {i} {current_datetime} {target}"
+            channel.basic_publish(
+                exchange="topic_logs", routing_key="message.#", body=message
+            )
+            log = send_request(url, message)
+            channel.basic_publish(exchange="topic_logs", routing_key="log.#", body=log)
+            time.sleep(2)
+        except Exception as e:
+            print(e)
 
     # Exit the application
-    exit_app(url, headers)
+    exit_app(connection, channel)
