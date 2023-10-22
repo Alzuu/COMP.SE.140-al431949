@@ -6,6 +6,7 @@ import pika
 from datetime import datetime
 
 
+# Connect to the message queue using environment variables
 def pika_connect():
     mq_host = os.getenv("MQ_HOST")
     mq_port = os.getenv("MQ_PORT")
@@ -29,7 +30,8 @@ def send_request(url, text):
         return log
 
 
-# Exit the application
+# Exit the application by publishing a stop message to the message queue
+# and closing the connection
 def exit_app(connection, channel):
     print("exit service1")
     stop = "SND STOP"

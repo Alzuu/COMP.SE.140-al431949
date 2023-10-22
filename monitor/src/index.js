@@ -23,30 +23,36 @@ app.get('/', async (req, res) => {
 app.listen(port, async () => {
   // Log server start
   console.log(`Monitor listening on port ${port}`)
-  await initAmqp()
+  const channel = await initAmqp(MQHost, MQPort)
+  // Listen for messages
+  channel.consume(
+    logQueue,
+    (msg) => {
+      if (!msg) return
+      console.log(`Monitor: Received message ${msg.content.toString('utf8')}`)
+      messages.push(msg.content.toString())
+    },
+    {
+      noAck: true,
+    }
+  )
 })
 
-const initAmqp = async () => {
+/**
+ * Initialize ampq connection, bind log queue and return the amqp channel
+ *
+ * @param {String} host hostname to connect to
+ * @param {String} port port to connect to
+ * @returns {Promise<amqp.Channel>} amqp channel
+ */
+const initAmqp = async (host, port) => {
   try {
-    const connection = await amqp.connect(`amqp://${MQHost}:${MQPort}`)
+    const connection = await amqp.connect(`amqp://${host}:${port}`)
     const channel = await connection.createChannel()
     await channel.assertExchange(exchange, 'topic', { durable: true })
 
     await channel.assertQueue(logQueue, { durable: true })
     await channel.bindQueue(logQueue, exchange, 'log.#')
-
-    // Listen for messages
-    channel.consume(
-      logQueue,
-      (msg) => {
-        if (!msg) return
-        console.log(`Monitor: Received message ${msg.content.toString('utf8')}`)
-        messages.push(msg.content.toString())
-      },
-      {
-        noAck: true,
-      }
-    )
 
     return channel
   } catch (error) {

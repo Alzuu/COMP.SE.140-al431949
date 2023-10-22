@@ -23,12 +23,15 @@ app.post('/', (req, res) => {
       // Create a log entry with data and client info
       const data = `${req.body.data} ${req.socket.remoteAddress}:${req.socket.remotePort}`
 
+      // Publish log to the message queue
       channel.publish(
         exchange,
         'log.#',
+        // Slice used to remove unnecessary double quotes
         Buffer.from(JSON.stringify(data).slice(1, -1), 'utf8')
       )
 
+      // Send an empty response with status code 200
       res.status(200).send()
     }
   } catch (error) {
@@ -42,7 +45,7 @@ setTimeout(() => {
   app.listen(port, async () => {
     // Log server start and clear the log file
     console.log(`Service2 listening on port ${port}`)
-    channel = await initAmqp()
+    channel = await initAmqp(MQHost, MQPort)
     // Listen for messages
     channel.consume(
       msgQueue,
@@ -58,9 +61,16 @@ setTimeout(() => {
   })
 }, 2000)
 
-const initAmqp = async () => {
+/**
+ * Initialize ampq connection, bind message queues and return the amqp channel
+ *
+ * @param {String} host hostname to connect to
+ * @param {String} port port to connect to
+ * @returns {Promise<amqp.Channel>} amqp channel
+ */
+const initAmqp = async (host, port) => {
   try {
-    const connection = await amqp.connect(`amqp://${MQHost}:${MQPort}`)
+    const connection = await amqp.connect(`amqp://${host}:${port}`)
     const channel = await connection.createChannel()
     await channel.assertExchange(exchange, 'topic', { durable: true })
 
