@@ -4,6 +4,7 @@ import time
 import sys
 import pika
 from datetime import datetime
+import socket
 
 
 # Connect to the message queue using environment variables
@@ -49,8 +50,11 @@ if __name__ == "__main__":
     target_host = os.getenv("TARGET_HOST")
     target_port = os.getenv("TARGET_PORT")
 
-    # Combine the host and port to form the target address
-    target = f"{target_host}:{target_port}"
+    # Retrieve target IP by target hostname
+    target_ip = socket.gethostbyname(target_host)
+
+    # Combine the ip address and port to form the target address
+    target = f"{target_ip}:{target_port}"
 
     # Create the URL for HTTP requests using the target address
     url = f"http://{target}/"
