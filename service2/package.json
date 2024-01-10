@@ -5,8 +5,10 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "build": "echo \"Error: no build specified\"",
+    "lint": "echo \"Error: no lint specified\"",
+    "test": "echo \"Error: no test specified\""
   },
   "keywords": [],
   "author": "Allan Li",
