@@ -47,4 +47,4 @@ tests:
 deploy:
   stage: deploy
   script:
-    - docker compose up --build
+    - docker compose up --build --detach
