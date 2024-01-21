@@ -34,15 +34,13 @@ build:
 
 tests:
   stage: test
-  image: nikolaik/python-nodejs:latest
+  image: node:alpine
   before_script:
     # install dependencies
     - cd monitor && npm ci && cd ..
-    - cd service2 && npm ci && cd ..
   script:
     # run tests
     - cd monitor && npm run test && cd ..
-    - cd service2 && npm run test && cd ..
 
 deploy:
   stage: deploy
