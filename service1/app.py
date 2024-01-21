@@ -40,6 +40,7 @@ def exit_app(connection, channel):
         channel.basic_publish(exchange="topic_logs", routing_key="log.#", body=stop)
         connection.close()
     except Exception as e:
+        print(f"Service1 Error: {str(e)}")
         pass
     finally:
         sys.exit(0)

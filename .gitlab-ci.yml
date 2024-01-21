@@ -26,10 +26,12 @@ build:
   before_script:
     # install dependencies
     - cd monitor && npm ci && cd ..
+    - cd service1 && pip install -r requirements.txt && cd ..
     - cd service2 && npm ci && cd ..
   script:
     # run linter and build services
     - cd monitor && npm run lint && npm run build && cd ..
+    - cd service1 && ruff format . && ruff check . --fix --output-format=gitlab && cd ..
     - cd service2 && npm run lint && npm run build && cd ..
 
 tests:
