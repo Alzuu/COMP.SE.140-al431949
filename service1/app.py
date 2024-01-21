@@ -5,6 +5,18 @@ import sys
 import pika
 from datetime import datetime
 import socket
+from enum import Enum
+
+
+i = 1
+state = "INIT"
+
+
+class State(Enum):
+    INIT = "INIT"
+    PAUSED = "PAUSED"
+    RUNNING = "RUNNING"
+    SHUTDOWN = "SHUTDOWN"
 
 
 # Connect to the message queue using environment variables
@@ -16,7 +28,37 @@ def pika_connect():
     )
     channel = connection.channel()
     channel.exchange_declare(exchange="topic_logs", exchange_type="topic", durable=True)
+
+    channel.basic_consume(
+        queue="status-service1",
+        on_message_callback=handle_status_change,
+        auto_ack=True,
+    )
+
     return connection, channel
+
+
+def handle_status_change(ch, method, properties, body):
+    global i, state
+    newState = body.decode("utf-8")
+    states = set(item.value for item in State)
+    if newState not in states:
+        print(f"Invalid state: {newState}")
+        return
+    if newState == State.INIT.value:
+        init()
+    elif newState == State.SHUTDOWN.value:
+        exit_app(connection, channel)
+    elif newState == State.PAUSED.value:
+        state = State.PAUSED.value
+    else:
+        state = State.RUNNING.value
+
+
+def init():
+    global i, state
+    i = 1
+    state = State.RUNNING.value
 
 
 # Send an HTTP POST request to a given URL with text data
@@ -61,9 +103,9 @@ if __name__ == "__main__":
     url = f"http://{target}/"
 
     connection, channel = pika_connect()
+    init()
 
-    # Send 20 requests with a pause of 2 seconds between each request
-    for i in range(1, 21):
+    while state != State.PAUSED.value:
         try:
             current_datetime = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             message = f"SND {i} {current_datetime} {target}"
@@ -72,9 +114,7 @@ if __name__ == "__main__":
             )
             log = send_request(url, message)
             channel.basic_publish(exchange="topic_logs", routing_key="log.#", body=log)
+            i += 1
             time.sleep(2)
         except Exception as e:
             print(e)
-
-    # Exit the application
-    exit_app(connection, channel)

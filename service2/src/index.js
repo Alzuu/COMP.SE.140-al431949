@@ -1,6 +1,13 @@
 import express from 'express'
 import amqp from 'amqplib'
 
+const State = {
+  INIT: 'INIT',
+  PAUSED: 'PAUSED',
+  RUNNING: 'RUNNING',
+  SHUTDOWN: 'SHUTDOWN'
+}
+
 // Create an Express app and specify the port
 const app = express()
 const port = 8000
@@ -13,11 +20,18 @@ const MQPort = process.env.MQ_PORT
 const exchange = 'topic_logs'
 const msgQueue = 'msgQueue'
 const logQueue = 'logQueue'
+const statusQueue = 'status_service2'
 
 let channel
+let state = State.INIT
 
 // Handle POST requests to the root path
 app.post('/', (req, res) => {
+  if (state !== State.RUNNING) {
+    res.status(503).send()
+    return
+  }
+
   try {
     if (req.body) {
       // Create a log entry with data and client info
@@ -80,9 +94,35 @@ const initAmqp = async (host, port) => {
     await channel.assertQueue(logQueue, { durable: true })
     await channel.bindQueue(logQueue, exchange, 'log.#')
 
+    await channel.consume(statusQueue, handleStateChange, {
+      noAck: true
+    })
+
     return channel
   } catch (error) {
     console.log('Service2 AMQP init: ', error)
     throw error
   }
 }
+
+const handleStateChange = (msg) => {
+  if (!msg) return
+  const newState = msg.content.toString()
+  if (!State[newState]) return
+  else if (newState === State.SHUTDOWN) shutDown()
+  else if (newState === State.INIT) state === State.RUNNING
+  else state = newState
+}
+
+const shutDown = async () => {
+  try {
+    await channel.close()
+    process.exit(0)
+  } catch (error) {
+    console.log('Service2 shutdown: ', error)
+    process.exit(1)
+  }
+}
+
+process.on('SIGTERM', shutDown)
+process.on('SIGINT', shutDown)
