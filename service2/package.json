@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/index.js",
     "build": "echo \"Error: no build specified\"",
-    "lint": "echo \"Error: no lint specified\"",
+    "lint": "npx prettier --write . && npx eslint --fix .",
     "test": "echo \"Error: no test specified\""
   },
   "keywords": [],
@@ -17,5 +17,10 @@
     "amqplib": "^0.10.3",
     "body-parser": "^1.20.2",
     "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "3.2.4"
   }
 }

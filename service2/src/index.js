@@ -55,7 +55,7 @@ setTimeout(() => {
         channel.publish(exchange, 'log.#', Buffer.from(log, 'utf8'))
       },
       {
-        noAck: true,
+        noAck: true
       }
     )
   })

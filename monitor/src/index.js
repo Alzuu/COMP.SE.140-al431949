@@ -33,7 +33,7 @@ app.listen(port, async () => {
       messages.push(msg.content.toString())
     },
     {
-      noAck: true,
+      noAck: true
     }
   )
 })
