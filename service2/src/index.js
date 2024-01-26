@@ -20,7 +20,7 @@ const MQPort = process.env.MQ_PORT
 const exchange = 'topic_logs'
 const msgQueue = 'msgQueue'
 const logQueue = 'logQueue'
-const statusQueue = 'status_service2'
+const stateQueue = 'state_service2'
 
 let channel
 let state = State.INIT
@@ -72,6 +72,7 @@ setTimeout(() => {
         noAck: true
       }
     )
+    handleStateChange({ content: State.RUNNING })
   })
 }, 2000)
 
@@ -94,7 +95,9 @@ const initAmqp = async (host, port) => {
     await channel.assertQueue(logQueue, { durable: true })
     await channel.bindQueue(logQueue, exchange, 'log.#')
 
-    await channel.consume(statusQueue, handleStateChange, {
+    await channel.assertQueue(stateQueue, { durable: true })
+    await channel.bindQueue(stateQueue, exchange, stateQueue)
+    await channel.consume(stateQueue, handleStateChange, {
       noAck: true
     })
 

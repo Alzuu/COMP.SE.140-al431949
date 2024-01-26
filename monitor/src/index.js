@@ -20,7 +20,7 @@ const messages = []
 
 const logQueue = 'logQueue'
 const exchange = 'topic_logs'
-const statusQueue = 'status_monitor'
+const stateQueue = 'state_monitor'
 
 let channel
 
@@ -64,7 +64,9 @@ const initAmqp = async (host, port) => {
     await channel.assertQueue(logQueue, { durable: true })
     await channel.bindQueue(logQueue, exchange, 'log.#')
 
-    await channel.consume(statusQueue, handleStateChange, {
+    await channel.assertQueue(stateQueue, { durable: true })
+    await channel.bindQueue(stateQueue, exchange, stateQueue)
+    await channel.consume(stateQueue, handleStateChange, {
       noAck: true
     })
 

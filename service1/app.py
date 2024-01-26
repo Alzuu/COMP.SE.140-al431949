@@ -7,7 +7,7 @@ from datetime import datetime
 import socket
 from enum import Enum
 
-
+state_queue = "state-service1"
 i = 1
 state = "INIT"
 
@@ -29,8 +29,12 @@ def pika_connect():
     channel = connection.channel()
     channel.exchange_declare(exchange="topic_logs", exchange_type="topic", durable=True)
 
+    channel.queue_declare(queue=state_queue, durable=True)
+    channel.queue_bind(
+        exchange="topic_logs", queue=state_queue, routing_key=state_queue
+    )
     channel.basic_consume(
-        queue="status-service1",
+        queue=state_queue,
         on_message_callback=handle_status_change,
         auto_ack=True,
     )
@@ -59,6 +63,25 @@ def init():
     global i, state
     i = 1
     state = State.RUNNING.value
+
+
+def send_message(url, channel):
+    global i, state
+    if state == State.RUNNING.value:
+        try:
+            current_datetime = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            message = f"SND {i} {current_datetime} {target}"
+            channel.basic_publish(
+                exchange="topic_logs", routing_key="message.#", body=message
+            )
+            log = send_request(url, message)
+            channel.basic_publish(exchange="topic_logs", routing_key="log.#", body=log)
+            i += 1
+        except Exception as e:
+            print(e)
+
+    time.sleep(2)
+    send_message(url, channel)
 
 
 # Send an HTTP POST request to a given URL with text data
@@ -105,16 +128,4 @@ if __name__ == "__main__":
     connection, channel = pika_connect()
     init()
 
-    while state != State.PAUSED.value:
-        try:
-            current_datetime = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            message = f"SND {i} {current_datetime} {target}"
-            channel.basic_publish(
-                exchange="topic_logs", routing_key="message.#", body=message
-            )
-            log = send_request(url, message)
-            channel.basic_publish(exchange="topic_logs", routing_key="log.#", body=log)
-            i += 1
-            time.sleep(2)
-        except Exception as e:
-            print(e)
+    send_message(url, channel)
