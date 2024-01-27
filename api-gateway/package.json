@@ -5,6 +5,9 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "start": "node src/index.js",
+    "build": "echo \"Error: no build specified\"",
+    "lint": "npx prettier --write . && npx eslint --fix .",
     "test": "vitest"
   },
   "keywords": [],

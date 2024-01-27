@@ -25,6 +25,7 @@ build:
   image: nikolaik/python-nodejs:latest
   before_script:
     # install dependencies
+    - cd api-gateway && npm ci && cd ..
     - cd monitor && npm ci && cd ..
     - cd service1 && pip install -r requirements.txt && cd ..
     - cd service2 && npm ci && cd ..
@@ -39,9 +40,11 @@ tests:
   image: node:alpine
   before_script:
     # install dependencies
+    - cd api-gateway && npm ci && cd ..
     - cd monitor && npm ci && cd ..
   script:
     # run tests
+    - cd api-gateway && npm run test && cd ..
     - cd monitor && npm run test && cd ..
 
 deploy:
