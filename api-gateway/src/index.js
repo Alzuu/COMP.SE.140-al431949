@@ -66,7 +66,8 @@ app.put('/state', async (req, res) => {
       state = newState
     }
     res.status(200).send()
-    if (newState === State.SHUTDOWN) {
+    // Channel added in conditional for testing purposes
+    if (newState === State.SHUTDOWN && channel) {
       shutDown()
     }
   } else {
@@ -121,7 +122,7 @@ const generateRunLog = (state, newState) => {
 
 const shutDown = async () => {
   try {
-    if (channel) await channel.close()
+    await channel.close()
     process.exit(0)
   } catch (error) {
     console.log('API-gateway shutdown: ', error)
