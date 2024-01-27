@@ -34,6 +34,7 @@ const server = app.listen(port, async () => {
   console.log(`API-gateway listening on port ${port}`)
 
   if (MQHost && MQPort) channel = await initAmqp(MQHost, MQPort)
+  state = State.RUNNING
 })
 
 app.get('/messages', async (req, res) => {
@@ -50,7 +51,7 @@ app.get('/messages', async (req, res) => {
 })
 
 app.put('/state', async (req, res) => {
-  const { state: newState } = req.body
+  const newState = req.body
   if (Object.values(State).includes(newState)) {
     if (newState !== state) {
       generateRunLog(state, newState)
