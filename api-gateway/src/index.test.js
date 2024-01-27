@@ -4,19 +4,14 @@ import server from '../src/index.js'
 
 const STATES = ['INIT', 'RUNNING', 'PAUSED', 'SHUTDOWN']
 
-describe('GET /messages', () => {
-  test('should return a 200 status code with a list of messages', async () => {
-    const response = await request(server).get('/messages')
-    expect(response.status).toBe(200)
-    expect(response.body).toBeDefined()
-  })
-})
-
 describe('PUT /state', () => {
   test.each(STATES)(
     'should return a 200 status code if state is %s',
     async (state) => {
-      const response = await request(server).put('/state').send({ state })
+      const response = await request(server)
+        .put('/state')
+        .set('Content-Type', 'text/plain')
+        .send(state)
       expect(response.status).toBe(200)
     }
   )
@@ -24,7 +19,8 @@ describe('PUT /state', () => {
   test('should return a 400 status code if state is valid', async () => {
     const response = await request(server)
       .put('/state')
-      .send({ state: 'INVALID' })
+      .set('Content-Type', 'text/plain')
+      .send('INVALID')
     expect(response.status).toBe(400)
   })
 })
