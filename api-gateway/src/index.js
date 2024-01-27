@@ -32,7 +32,8 @@ let channel
 
 const server = app.listen(port, async () => {
   console.log(`API-gateway listening on port ${port}`)
-  channel = await initAmqp(MQHost, MQPort)
+
+  if (MQHost && MQPort) channel = await initAmqp(MQHost, MQPort)
 })
 
 app.get('/messages', async (req, res) => {
@@ -54,11 +55,12 @@ app.put('/state', async (req, res) => {
     if (newState !== state) {
       generateRunLog(state, newState)
       for (const stateQueue in stateQueues) {
-        await channel.publish(
-          exchange,
-          stateQueues[stateQueue],
-          Buffer.from(newState, 'utf8')
-        )
+        if (channel)
+          await channel.publish(
+            exchange,
+            stateQueues[stateQueue],
+            Buffer.from(newState, 'utf8')
+          )
       }
       state = newState
     }
@@ -118,7 +120,7 @@ const generateRunLog = (state, newState) => {
 
 const shutDown = async () => {
   try {
-    await channel.close()
+    if (channel) await channel.close()
     process.exit(0)
   } catch (error) {
     console.log('API-gateway shutdown: ', error)
