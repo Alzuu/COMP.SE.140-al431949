@@ -33,7 +33,7 @@ describe('GET /state', () => {
   test('should return a 200 status code with the current state', async () => {
     const response = await request(server).get('/state')
     expect(response.status).toBe(200)
-    expect(STATES).toContain(response.body.state)
+    expect(STATES).toContain(response.text)
   })
 })
 
