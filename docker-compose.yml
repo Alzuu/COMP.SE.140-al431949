@@ -1,5 +1,5 @@
-name: 'al431949'
-version: '3.8'
+name: "al431949"
+version: "3.8"
 services:
   service1:
     build: ./service1
@@ -18,12 +18,12 @@ services:
       - rabbitmq
     command:
       [
-        './utils/wait-for-it.sh',
-        'service2:8000',
-        '--',
-        'python3',
-        '-u',
-        'app.py',
+        "./utils/wait-for-it.sh",
+        "service2:8000",
+        "--",
+        "python3",
+        "-u",
+        "app.py",
       ]
 
   service2:
@@ -39,13 +39,13 @@ services:
     depends_on:
       - rabbitmq
     command:
-      ['./src/utils/wait-for-it.sh', 'rabbitmq:5672', '--', 'npm', 'start']
+      ["./src/utils/wait-for-it.sh", "rabbitmq:5672", "--", "npm", "start"]
 
   rabbitmq:
     image: rabbitmq:3.12-management
     container_name: rabbitmq
     ports:
-      - '15672:15672'
+      - "15672:15672"
     expose:
       - 5672
     networks:
@@ -55,7 +55,7 @@ services:
     build: ./monitor
     container_name: monitor
     ports:
-      - '8087:8087'
+      - "8087:8087"
     expose:
       - 8087
     networks:
@@ -66,7 +66,24 @@ services:
     depends_on:
       - rabbitmq
     command:
-      ['./src/utils/wait-for-it.sh', 'rabbitmq:5672', '--', 'npm', 'start']
+      ["./src/utils/wait-for-it.sh", "rabbitmq:5672", "--", "npm", "start"]
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8083:8083"
+    expose:
+      - 8083
+    networks:
+      - customNetwork
+    environment:
+      - MQ_HOST=rabbitmq
+      - MQ_PORT=5672
+    depends_on:
+      - rabbitmq
+    command:
+      ["./src/utils/wait-for-it.sh", "rabbitmq:5672", "--", "npm", "start"]
 
 networks:
   customNetwork:
