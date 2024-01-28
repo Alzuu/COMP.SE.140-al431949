@@ -113,7 +113,7 @@ const handleStateChange = (msg) => {
   const newState = msg.content.toString()
   if (!State[newState]) return
   else if (newState === State.SHUTDOWN) shutDown()
-  else if (newState === State.INIT) state === State.RUNNING
+  else if (newState === State.INIT) state = State.RUNNING
   else state = newState
 }
 

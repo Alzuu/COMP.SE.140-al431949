@@ -30,13 +30,24 @@ const runLogs = []
 
 let channel
 
+const init = async () => {
+  const newState = State.RUNNING
+  generateRunLog(state, newState)
+  state = newState
+  for (const stateQueue in stateQueues) {
+    await channel.publish(
+      exchange,
+      stateQueues[stateQueue],
+      Buffer.from(newState, 'utf8')
+    )
+  }
+}
+
 const server = app.listen(port, async () => {
   console.log(`API-gateway listening on port ${port}`)
 
   if (MQHost && MQPort) channel = await initAmqp(MQHost, MQPort)
-  const newState = State.RUNNING
-  generateRunLog(state, newState)
-  state = newState
+  init()
 })
 
 app.get('/messages', async (req, res) => {
@@ -71,6 +82,9 @@ app.put('/state', async (req, res) => {
     // Channel added in conditional for testing purposes
     if (newState === State.SHUTDOWN && channel) {
       shutDown()
+    }
+    if (newState === State.INIT && channel) {
+      init()
     }
   } else {
     res.status(400).send()

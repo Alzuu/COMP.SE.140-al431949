@@ -6,10 +6,15 @@ import pika
 from datetime import datetime
 import socket
 from enum import Enum
+import threading
 
-state_queue = "state-service1"
+state_queue = "state_service1"
 i = 1
 state = "INIT"
+url = ""
+connection = None
+channel = None
+send_message_thread = None
 
 
 class State(Enum):
@@ -21,6 +26,17 @@ class State(Enum):
 
 # Connect to the message queue using environment variables
 def pika_connect():
+    global connection, channel
+    mq_host = os.getenv("MQ_HOST")
+    mq_port = os.getenv("MQ_PORT")
+    connection = pika.BlockingConnection(
+        pika.ConnectionParameters(host=mq_host, port=mq_port)
+    )
+    channel = connection.channel()
+    channel.exchange_declare(exchange="topic_logs", exchange_type="topic", durable=True)
+
+
+def pika_connect_and_consume():
     mq_host = os.getenv("MQ_HOST")
     mq_port = os.getenv("MQ_PORT")
     connection = pika.BlockingConnection(
@@ -38,12 +54,15 @@ def pika_connect():
         on_message_callback=handle_status_change,
         auto_ack=True,
     )
-
-    return connection, channel
+    try:
+        channel.start_consuming()
+    except KeyboardInterrupt:
+        channel.stop_consuming()
+        connection.close()
 
 
 def handle_status_change(ch, method, properties, body):
-    global i, state
+    global state
     newState = body.decode("utf-8")
     states = set(item.value for item in State)
     if newState not in states:
@@ -54,34 +73,35 @@ def handle_status_change(ch, method, properties, body):
     elif newState == State.SHUTDOWN.value:
         exit_app(connection, channel)
     elif newState == State.PAUSED.value:
-        state = State.PAUSED.value
+        state = newState
     else:
-        state = State.RUNNING.value
+        state = newState
 
 
 def init():
     global i, state
     i = 1
-    state = State.RUNNING.value
+    state = State.INIT.value
 
 
-def send_message(url, channel):
-    global i, state
-    if state == State.RUNNING.value:
+def send_message():
+    global i
+    while state != State.SHUTDOWN.value:
         try:
-            current_datetime = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            message = f"SND {i} {current_datetime} {target}"
-            channel.basic_publish(
-                exchange="topic_logs", routing_key="message.#", body=message
-            )
-            log = send_request(url, message)
-            channel.basic_publish(exchange="topic_logs", routing_key="log.#", body=log)
-            i += 1
+            if state == State.RUNNING.value:
+                current_datetime = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                message = f"SND {i} {current_datetime} {target}"
+                channel.basic_publish(
+                    exchange="topic_logs", routing_key="message.#", body=message
+                )
+                log = send_request(url, message)
+                channel.basic_publish(
+                    exchange="topic_logs", routing_key="log.#", body=log
+                )
+                i += 1
         except Exception as e:
             print(e)
-
-    time.sleep(2)
-    send_message(url, channel)
+        time.sleep(2)
 
 
 # Send an HTTP POST request to a given URL with text data
@@ -99,6 +119,8 @@ def send_request(url, text):
 # Exit the application by publishing a stop message to the message queue
 # and closing the connection
 def exit_app(connection, channel):
+    global state
+    state = State.SHUTDOWN.value
     print("exit service1")
     stop = "SND STOP"
     try:
@@ -125,7 +147,14 @@ if __name__ == "__main__":
     # Create the URL for HTTP requests using the target address
     url = f"http://{target}/"
 
-    connection, channel = pika_connect()
+    pika_connect()
     init()
 
-    send_message(url, channel)
+    pika_consume_thread = threading.Thread(target=pika_connect_and_consume)
+    send_message_thread = threading.Thread(target=send_message)
+
+    pika_consume_thread.start()
+    send_message_thread.start()
+
+    pika_consume_thread.join()
+    send_message_thread.join()

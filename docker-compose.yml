@@ -83,7 +83,7 @@ services:
     depends_on:
       - rabbitmq
     command:
-      ["./src/utils/wait-for-it.sh", "rabbitmq:5672", "--", "npm", "start"]
+      ["./src/utils/wait-for-it.sh", "service1:3000", "--", "npm", "start"]
 
 networks:
   customNetwork:
