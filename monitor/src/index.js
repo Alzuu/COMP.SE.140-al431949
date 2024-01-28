@@ -27,10 +27,10 @@ let channel
 // Handle GET requests to the root path
 app.get('/', async (req, res) => {
   res.setHeader('Content-Type', 'text/plain')
-  res.send(messages.join('\n'))
+  res.status(200).send(messages.join('\n'))
 })
 
-app.listen(port, async () => {
+const server = app.listen(port, async () => {
   // Log server start
   console.log(`Monitor listening on port ${port}`)
   channel = await initAmqp(MQHost, MQPort)
@@ -94,3 +94,5 @@ const shutDown = async () => {
 
 process.on('SIGTERM', shutDown)
 process.on('SIGINT', shutDown)
+
+export default server
