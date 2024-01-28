@@ -35,11 +35,12 @@ const init = async () => {
   generateRunLog(state, newState)
   state = newState
   for (const stateQueue in stateQueues) {
-    await channel.publish(
-      exchange,
-      stateQueues[stateQueue],
-      Buffer.from(newState, 'utf8')
-    )
+    if (channel)
+      await channel.publish(
+        exchange,
+        stateQueues[stateQueue],
+        Buffer.from(newState, 'utf8')
+      )
   }
 }
 
