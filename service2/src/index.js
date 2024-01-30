@@ -17,10 +17,13 @@ app.use(express.json())
 const MQHost = process.env.MQ_HOST
 const MQPort = process.env.MQ_PORT
 
-const exchange = 'topic_logs'
-const msgQueue = 'msgQueue'
-const logQueue = 'logQueue'
-const stateQueue = 'state_service2'
+const MQExchange = process.env.MQ_EXCHANGE
+const MQLogQueue = process.env.MQ_LOG_QUEUE
+const MQLogRoutingKey = process.env.MQ_LOG_ROUTING_KEY
+const MQMessageQueue = process.env.MQ_MESSAGE_QUEUE
+const MQMessageRoutingKey = process.env.MQ_MESSAGE_ROUTING_KEY
+const MQStateQueue = process.env.MQ_STATE_QUEUE
+const MQStateService2RoutingKey = process.env.MQ_STATE_SERVICE2_ROUTING_KEY
 
 let channel
 let state = State.INIT
@@ -39,7 +42,7 @@ app.post('/', (req, res) => {
 
       // Publish log to the message queue
       channel.publish(
-        exchange,
+        MQExchange,
         'log.#',
         // Slice used to remove unnecessary double quotes
         Buffer.from(JSON.stringify(data).slice(1, -1), 'utf8')
@@ -62,11 +65,11 @@ setTimeout(() => {
     channel = await initAmqp(MQHost, MQPort)
     // Listen for messages
     channel.consume(
-      msgQueue,
+      MQMessageQueue,
       (msg) => {
         if (!msg) return
         const log = msg.content.toString() + ' MSG'
-        channel.publish(exchange, 'log.#', Buffer.from(log, 'utf8'))
+        channel.publish(MQExchange, 'log.#', Buffer.from(log, 'utf8'))
       },
       {
         noAck: true
@@ -87,17 +90,17 @@ const initAmqp = async (host, port) => {
   try {
     const connection = await amqp.connect(`amqp://${host}:${port}`)
     const channel = await connection.createChannel()
-    await channel.assertExchange(exchange, 'topic', { durable: true })
+    await channel.assertExchange(MQExchange, 'topic', { durable: true })
 
-    await channel.assertQueue(msgQueue, { durable: true })
-    await channel.bindQueue(msgQueue, exchange, 'message.#')
+    await channel.assertQueue(MQMessageQueue, { durable: true })
+    await channel.bindQueue(MQMessageQueue, MQExchange, MQMessageRoutingKey)
 
-    await channel.assertQueue(logQueue, { durable: true })
-    await channel.bindQueue(logQueue, exchange, 'log.#')
+    await channel.assertQueue(MQLogQueue, { durable: true })
+    await channel.bindQueue(MQLogQueue, MQExchange, MQLogRoutingKey)
 
-    await channel.assertQueue(stateQueue, { durable: true })
-    await channel.bindQueue(stateQueue, exchange, stateQueue)
-    await channel.consume(stateQueue, handleStateChange, {
+    await channel.assertQueue(MQStateQueue, { durable: true })
+    await channel.bindQueue(MQStateQueue, MQExchange, MQStateService2RoutingKey)
+    await channel.consume(MQStateQueue, handleStateChange, {
       noAck: true
     })
 

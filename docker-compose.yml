@@ -3,23 +3,28 @@ version: "3.8"
 services:
   service1:
     build: ./service1
-    container_name: service1
+    container_name: ${SERVICE1_HOST}
     expose:
-      - 3000
+      - ${SERVICE1_PORT}
     networks:
       - customNetwork
     environment:
-      - TARGET_HOST=service2
-      - TARGET_PORT=8000
-      - MQ_HOST=rabbitmq
-      - MQ_PORT=5672
+      - TARGET_HOST=${SERVICE2_HOST}
+      - TARGET_PORT=${SERVICE2_PORT}
+      - MQ_HOST=${MQ_HOST}
+      - MQ_PORT=${MQ_PORT}
+      - MQ_EXCHANGE=${MQ_EXCHANGE}
+      - MQ_LOG_ROUTING_KEY=${MQ_LOG_ROUTING_KEY}
+      - MQ_MESSAGE_ROUTING_KEY=${MQ_MESSAGE_ROUTING_KEY}
+      - MQ_STATE_QUEUE=${MQ_STATE_QUEUE}
+      - MQ_STATE_SERVICE1_ROUTING_KEY=${MQ_STATE_SERVICE1_ROUTING_KEY}
       - PYTHONUNBUFFERED=1
     depends_on:
-      - rabbitmq
+      - ${MQ_HOST}
     command:
       [
         "./utils/wait-for-it.sh",
-        "service2:8000",
+        "${SERVICE2_HOST}:${SERVICE2_PORT}",
         "--",
         "python3",
         "-u",
@@ -28,62 +33,99 @@ services:
 
   service2:
     build: ./service2
-    container_name: service2
+    container_name: ${SERVICE2_HOST}
     expose:
-      - 8000
+      - ${SERVICE2_PORT}
     networks:
       - customNetwork
     environment:
-      - MQ_HOST=rabbitmq
-      - MQ_PORT=5672
+      - MQ_HOST=${MQ_HOST}
+      - MQ_PORT=${MQ_PORT}
+      - MQ_EXCHANGE=${MQ_EXCHANGE}
+      - MQ_LOG_QUEUE=${MQ_LOG_QUEUE}
+      - MQ_LOG_ROUTING_KEY=${MQ_LOG_ROUTING_KEY}
+      - MQ_MESSAGE_QUEUE=${MQ_MESSAGE_QUEUE}
+      - MQ_MESSAGE_ROUTING_KEY=${MQ_MESSAGE_ROUTING_KEY}
+      - MQ_STATE_QUEUE=${MQ_STATE_QUEUE}
+      - MQ_STATE_SERVICE2_ROUTING_KEY=${MQ_STATE_SERVICE2_ROUTING_KEY}
     depends_on:
-      - rabbitmq
+      - ${MQ_HOST}
     command:
-      ["./src/utils/wait-for-it.sh", "rabbitmq:5672", "--", "npm", "start"]
+      [
+        "./src/utils/wait-for-it.sh",
+        "${MQ_HOST}:${MQ_PORT}",
+        "--",
+        "npm",
+        "start",
+      ]
 
   rabbitmq:
     image: rabbitmq:3.12-management
-    container_name: rabbitmq
+    container_name: ${MQ_HOST}
     ports:
       - "15672:15672"
     expose:
-      - 5672
+      - ${MQ_PORT}
     networks:
       - customNetwork
 
   monitor:
     build: ./monitor
-    container_name: monitor
+    container_name: ${MONITOR_HOST}
     ports:
-      - "8087:8087"
+      - "${MONITOR_PORT}:${MONITOR_PORT}"
     expose:
-      - 8087
+      - ${MONITOR_PORT}
     networks:
       - customNetwork
     environment:
-      - MQ_HOST=rabbitmq
-      - MQ_PORT=5672
+      - MQ_HOST=${MQ_HOST}
+      - MQ_PORT=${MQ_PORT}
+      - MQ_LOG_QUEUE=${MQ_LOG_QUEUE}
+      - MQ_EXCHANGE=${MQ_EXCHANGE}
+      - MQ_LOG_ROUTING_KEY=${MQ_LOG_ROUTING_KEY}
+      - MQ_STATE_QUEUE=${MQ_STATE_QUEUE}
+      - MQ_STATE_MONITOR_ROUTING_KEY=${MQ_STATE_MONITOR_ROUTING_KEY}
     depends_on:
-      - rabbitmq
+      - ${MQ_HOST}
     command:
-      ["./src/utils/wait-for-it.sh", "rabbitmq:5672", "--", "npm", "start"]
+      [
+        "./src/utils/wait-for-it.sh",
+        "${MQ_HOST}:${MQ_PORT}",
+        "--",
+        "npm",
+        "start",
+      ]
 
   api-gateway:
     build: ./api-gateway
-    container_name: api-gateway
+    container_name: ${API_GATEWAY_HOST}
     ports:
-      - "8083:8083"
+      - "${API_GATEWAY_PORT}:${API_GATEWAY_PORT}"
     expose:
-      - 8083
+      - ${API_GATEWAY_PORT}
     networks:
       - customNetwork
     environment:
-      - MQ_HOST=rabbitmq
-      - MQ_PORT=5672
+      - MQ_HOST=${MQ_HOST}
+      - MQ_PORT=${MQ_PORT}
+      - MQ_EXCHANGE=${MQ_EXCHANGE}
+      - MQ_STATE_QUEUE=${MQ_STATE_QUEUE}
+      - MQ_STATE_SERVICE1_ROUTING_KEY=${MQ_STATE_SERVICE1_ROUTING_KEY}
+      - MQ_STATE_SERVICE2_ROUTING_KEY=${MQ_STATE_SERVICE2_ROUTING_KEY}
+      - MQ_STATE_MONITOR_ROUTING_KEY=${MQ_STATE_MONITOR_ROUTING_KEY}
+      - MONITOR_HOST=${MONITOR_HOST}
+      - MONITOR_PORT=${MONITOR_PORT}
     depends_on:
-      - rabbitmq
+      - ${MQ_HOST}
     command:
-      ["./src/utils/wait-for-it.sh", "service1:3000", "--", "npm", "start"]
+      [
+        "./src/utils/wait-for-it.sh",
+        "${SERVICE1_HOST}:${SERVICE1_PORT}",
+        "--",
+        "npm",
+        "start",
+      ]
 
 networks:
   customNetwork:

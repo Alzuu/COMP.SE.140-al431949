@@ -14,13 +14,14 @@ const port = 8087
 
 const MQHost = process.env.MQ_HOST
 const MQPort = process.env.MQ_PORT
+const MQLogQueue = process.env.MQ_LOG_QUEUE
+const MQExchange = process.env.MQ_EXCHANGE
+const MQLogRoutingKey = process.env.MQ_LOG_ROUTING_KEY
+const MQStateQueue = process.env.MQ_STATE_QUEUE
+const MQStateMonitorRoutingKey = process.env.MQ_STATE_MONITOR_ROUTING_KEY
 
 // Define the array of messages
 const messages = []
-
-const logQueue = 'logQueue'
-const exchange = 'topic_logs'
-const stateQueue = 'state_monitor'
 
 let channel
 
@@ -36,7 +37,7 @@ const server = app.listen(port, async () => {
   channel = await initAmqp(MQHost, MQPort)
   // Listen for messages
   channel.consume(
-    logQueue,
+    MQLogQueue,
     (msg) => {
       if (!msg) return
       console.log(`Monitor: Received message ${msg.content.toString('utf8')}`)
@@ -59,14 +60,14 @@ const initAmqp = async (host, port) => {
   try {
     const connection = await amqp.connect(`amqp://${host}:${port}`)
     const channel = await connection.createChannel()
-    await channel.assertExchange(exchange, 'topic', { durable: true })
+    await channel.assertExchange(MQExchange, 'topic', { durable: true })
 
-    await channel.assertQueue(logQueue, { durable: true })
-    await channel.bindQueue(logQueue, exchange, 'log.#')
+    await channel.assertQueue(MQLogQueue, { durable: true })
+    await channel.bindQueue(MQLogQueue, MQExchange, MQLogRoutingKey)
 
-    await channel.assertQueue(stateQueue, { durable: true })
-    await channel.bindQueue(stateQueue, exchange, stateQueue)
-    await channel.consume(stateQueue, handleStateChange, {
+    await channel.assertQueue(MQStateQueue, { durable: true })
+    await channel.bindQueue(MQStateQueue, MQExchange, MQStateMonitorRoutingKey)
+    await channel.consume(MQStateQueue, handleStateChange, {
       noAck: true
     })
 

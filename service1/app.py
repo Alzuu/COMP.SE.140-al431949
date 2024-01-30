@@ -8,7 +8,13 @@ import socket
 from enum import Enum
 import threading
 
-state_queue = "state_service1"
+
+mq_host = os.getenv("MQ_HOST")
+mq_port = os.getenv("MQ_PORT")
+mq_exchange = os.getenv("MQ_EXCHANGE")
+mq_message_routing_key = os.getenv("MQ_MESSAGE_ROUTING_KEY")
+mq_log_routing_key = os.getenv("MQ_LOG_ROUTING_KEY")
+
 i = 1
 state = "INIT"
 url = ""
@@ -27,30 +33,31 @@ class State(Enum):
 # Connect to the message queue using environment variables
 def pika_connect():
     global connection, channel
-    mq_host = os.getenv("MQ_HOST")
-    mq_port = os.getenv("MQ_PORT")
     connection = pika.BlockingConnection(
         pika.ConnectionParameters(host=mq_host, port=mq_port)
     )
     channel = connection.channel()
-    channel.exchange_declare(exchange="topic_logs", exchange_type="topic", durable=True)
+    channel.exchange_declare(exchange=mq_exchange, exchange_type="topic", durable=True)
 
 
 def pika_connect_and_consume():
-    mq_host = os.getenv("MQ_HOST")
-    mq_port = os.getenv("MQ_PORT")
+    mq_state_queue = os.getenv("MQ_STATE_QUEUE")
+    mq_state_service1_routing_key = os.getenv("MQ_STATE_SERVICE1_ROUTING_KEY")
+
     connection = pika.BlockingConnection(
         pika.ConnectionParameters(host=mq_host, port=mq_port)
     )
     channel = connection.channel()
-    channel.exchange_declare(exchange="topic_logs", exchange_type="topic", durable=True)
+    channel.exchange_declare(exchange=mq_exchange, exchange_type="topic", durable=True)
 
-    channel.queue_declare(queue=state_queue, durable=True)
+    channel.queue_declare(queue=mq_state_queue, durable=True)
     channel.queue_bind(
-        exchange="topic_logs", queue=state_queue, routing_key=state_queue
+        exchange=mq_exchange,
+        queue=mq_state_queue,
+        routing_key=mq_state_service1_routing_key,
     )
     channel.basic_consume(
-        queue=state_queue,
+        queue=mq_state_queue,
         on_message_callback=handle_status_change,
         auto_ack=True,
     )
@@ -92,11 +99,13 @@ def send_message():
                 current_datetime = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
                 message = f"SND {i} {current_datetime} {target}"
                 channel.basic_publish(
-                    exchange="topic_logs", routing_key="message.#", body=message
+                    exchange=mq_exchange,
+                    routing_key=mq_message_routing_key,
+                    body=message,
                 )
                 log = send_request(url, message)
                 channel.basic_publish(
-                    exchange="topic_logs", routing_key="log.#", body=log
+                    exchange=mq_exchange, routing_key=mq_log_routing_key, body=log
                 )
                 i += 1
         except Exception as e:
@@ -121,10 +130,11 @@ def send_request(url, text):
 def exit_app(connection, channel):
     global state
     state = State.SHUTDOWN.value
-    print("exit service1")
     stop = "SND STOP"
     try:
-        channel.basic_publish(exchange="topic_logs", routing_key="log.#", body=stop)
+        channel.basic_publish(
+            exchange=mq_exchange, routing_key=mq_log_routing_key, body=stop
+        )
         connection.close()
     except Exception as e:
         print(f"Service1 Error: {str(e)}")
